@@ -61,9 +61,9 @@ const downloadSongs = async (input) => {
   if (!input) {
     data = await readFromFile.readFromFile('./temp/moviesList.txt');
     parsedMovies = await JSON.parse(data);
+  } else {
+    parsedMovies = input;
   }
-
-  parsedMovies = input;
 
   for (movie of parsedMovies) {
     for ({song, songPageUrl, singer} of movie.songs) {

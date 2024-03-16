@@ -5,30 +5,35 @@ const {filePath} = require('../constants/urls');
 const readFromFile = require('../utils/readFromFile');
 const writeToFile = require('../utils/writeToFile');
 
-const getDownloadLinks = async (url) => {
-  const $ = await cheerioLoader.loadContent(url);
+const getDownloadLinks = async (url, movieName, name) => {
+  try {
+    const $ = await cheerioLoader.loadContent(url);
 
-  const allLinks = [];
+    const allLinks = [];
 
-  $('#album_page > .album_page_content + .main_page_category_div + div > div > a').each((i, o) => {
-    const downloadUrl = $(o).prop('href');
-    const [bitrate] = $(o).text().trim().split(' ');
+    $('#album_page > .album_page_content + .main_page_category_div + div > div > a').each((i, o) => {
+      const downloadUrl = $(o).prop('href');
+      const [bitrate] = $(o).text().trim().split(' ');
 
-    allLinks.push({
-      bitrate,
-      downloadUrl
+      allLinks.push({
+        bitrate,
+        downloadUrl
+      });
     });
-  });
 
-  allLinks.sort((a, b) => {
-    if (Number(a.bitrate) > Number(b.bitrate)) {
-      return -1;
-    }
+    allLinks.sort((a, b) => {
+      if (Number(a.bitrate) > Number(b.bitrate)) {
+        return -1;
+      }
 
-    return 1;
-  });
+      return 1;
+    });
 
-  return allLinks[0];
+    return allLinks[0];
+  } catch (err) {
+    console.error(`An error occurred while downloading ${movieName} - ${name}`);
+    return 'No url';
+  }
 };
 
 const createDirectoryAndWrite = async (path, data, name, ext) => {
@@ -47,14 +52,18 @@ const downloadSong = async (highestQualityLink, movieName, name) => {
   }).then(({ data }) => {
     createDirectoryAndWrite(`${filePath}${movieName}`, data, name, 'mp3');
   }).catch(async (err) => {
-    console.error(err);
+    console.error(`An error occurred while downloading ${movieName} - ${name}`);
     await writeToFile.writeToFile(
-      `${movieName} - ${name} \n An error ocurred while downloading ${highestQualityLink} \n`,
+      `${movieName} - ${name} \n An error ocurred while downloading ${highestQualityLink} \n ${err} \n`,
       './temp/FailedToDownload.txt',
       true
     );
   });
 };
+
+function delay(time) {
+  return new Promise(resolve => setTimeout(resolve, time));
+}
 
 const downloadSongs = async (input) => {
   let data, parsedMovies;
@@ -67,11 +76,14 @@ const downloadSongs = async (input) => {
 
   for (movie of parsedMovies) {
     for ({song, songPageUrl, singer} of movie.songs) {
-      const {downloadUrl} = await getDownloadLinks(songPageUrl);
-      downloadSong(downloadUrl, movie.movie, song);
+      const {downloadUrl = ''} = await getDownloadLinks(songPageUrl, movie.movie, song);
+      if (downloadUrl) {
+        downloadSong(downloadUrl, movie.movie, song);
+      }
     }
 
     await createDirectoryAndWrite(`${filePath}${movie.movie}`, JSON.stringify(movie), 'log', 'txt');
+    await delay(1000);
   }
 }
 

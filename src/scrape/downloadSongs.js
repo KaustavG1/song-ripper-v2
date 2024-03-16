@@ -1,4 +1,5 @@
 const axios = require('axios');
+const path = require('node:path');
 const fs = require('fs');
 const cheerioLoader = require('../utils/cheerio');
 const {filePath} = require('../constants/urls');
@@ -29,10 +30,10 @@ const getDownloadLinks = async (url, movieName, name) => {
       return 1;
     });
 
-    return allLinks[0];
+    return [allLinks[0], ''];
   } catch (err) {
     console.error(`An error occurred while downloading ${movieName} - ${name}`);
-    return 'No url';
+    return ['No url', err];
   }
 };
 
@@ -46,11 +47,13 @@ const createDirectoryAndWrite = async (path, data, name, ext) => {
   }
 };
 
+const getPath = (basePath, name) => path.join(basePath, name);
+
 const downloadSong = async (highestQualityLink, movieName, name) => {
   axios.get(highestQualityLink, {
     responseType: 'arraybuffer'
   }).then(({ data }) => {
-    createDirectoryAndWrite(`${filePath}${movieName}`, data, name, 'mp3');
+    createDirectoryAndWrite(getPath(filePath, movieName), data, name, 'mp3');
   }).catch(async (err) => {
     console.error(`An error occurred while downloading ${movieName} - ${name}`);
     await writeToFile.writeToFile(
@@ -76,13 +79,21 @@ const downloadSongs = async (input) => {
 
   for (movie of parsedMovies) {
     for ({song, songPageUrl, singer} of movie.songs) {
-      const {downloadUrl = ''} = await getDownloadLinks(songPageUrl, movie.movie, song);
+      const [{downloadUrl = ''}, err] = await getDownloadLinks(songPageUrl, movie.movie, song);
       if (downloadUrl) {
         downloadSong(downloadUrl, movie.movie, song);
       }
+
+      if (err) {
+        await writeToFile.writeToFile(
+          `${movie.movie} - ${song} \n Download page not found \n ${err} \n`,
+          './temp/FailedToDownload.txt',
+          true
+        );
+      }
     }
 
-    await createDirectoryAndWrite(`${filePath}${movie.movie}`, JSON.stringify(movie), 'log', 'txt');
+    await createDirectoryAndWrite(getPath(filePath, movie.movie), JSON.stringify(movie), 'log', 'txt');
     await delay(1000);
   }
 }

@@ -4,7 +4,7 @@ const path = require('node:path');
 
 const platform = os.platform()
 
-const filePathForWin = path.join('D:\\', 'test'); // For Windows
+const filePathForWin = path.join('D:\\', 'Song_Ripper_v2'); // For Windows
 const filePathForMac = '/Users/kaustav/Music/SongRipperV2/'; // For Mac OS
 const filePathForLinux = '/home/kaustav/Music/SongRipperV2/'; // For Linux
 

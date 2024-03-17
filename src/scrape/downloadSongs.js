@@ -1,5 +1,5 @@
 const axios = require('axios');
-const path = require('node:path');
+const pathLib = require('node:path');
 const fs = require('fs');
 const cheerioLoader = require('../utils/cheerio');
 const {filePath} = require('../constants/urls');
@@ -32,22 +32,26 @@ const getDownloadLinks = async (url, movieName, name) => {
 
     return [allLinks[0], ''];
   } catch (err) {
-    console.error(`An error occurred while downloading ${movieName} - ${name}`);
+    console.log(`An error occurred while downloading ${movieName} - ${name}`);
     return ['No url', err];
   }
 };
 
+const getPath = (basePath, name) => {
+  const safaName = name.replaceAll(':', '-');
+
+  return pathLib.join(basePath, safaName);
+}
+
 const createDirectoryAndWrite = async (path, data, name, ext) => {
   try {
-    await fs.access(path);
+    await fs.accessSync(path);
   } catch {
     await fs.mkdirSync(path, {recursive: true});
   } finally {
-    await fs.writeFileSync(`${path}/${name}.${ext}`, data);
+    await fs.writeFileSync(getPath(path, `${name}.${ext}`), data);
   }
 };
-
-const getPath = (basePath, name) => path.join(basePath, name);
 
 const downloadSong = async (highestQualityLink, movieName, name) => {
   axios.get(highestQualityLink, {
@@ -55,7 +59,7 @@ const downloadSong = async (highestQualityLink, movieName, name) => {
   }).then(({ data }) => {
     createDirectoryAndWrite(getPath(filePath, movieName), data, name, 'mp3');
   }).catch(async (err) => {
-    console.error(`An error occurred while downloading ${movieName} - ${name}`);
+    console.log(`An error occurred while downloading ${movieName} - ${name}`);
     await writeToFile.writeToFile(
       `${movieName} - ${name} \n An error ocurred while downloading ${highestQualityLink} \n ${err} \n`,
       './temp/FailedToDownload.txt',
@@ -78,6 +82,7 @@ const downloadSongs = async (input) => {
   }
 
   for (movie of parsedMovies) {
+    console.debug(`Starting ${movie.movie} songs download`);
     for ({song, songPageUrl, singer} of movie.songs) {
       const [{downloadUrl = ''}, err] = await getDownloadLinks(songPageUrl, movie.movie, song);
       if (downloadUrl) {
@@ -93,7 +98,17 @@ const downloadSongs = async (input) => {
       }
     }
 
-    await createDirectoryAndWrite(getPath(filePath, movie.movie), JSON.stringify(movie), 'log', 'txt');
+    try {
+      await createDirectoryAndWrite(getPath(filePath, movie.movie), JSON.stringify(movie), 'log', 'txt');
+    } catch (err) {
+      await writeToFile.writeToFile(
+        `${movie.movie} - ${song} \n An error ocurred while creating directory \n ${err} \n`,
+        './temp/FailedToDownload.txt',
+        true
+      );
+    }
+    console.debug(`Completed ${movie.movie} songs download`);
+
     await delay(100);
   }
 }

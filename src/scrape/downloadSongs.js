@@ -94,7 +94,7 @@ const downloadSongs = async (input) => {
     }
 
     await createDirectoryAndWrite(getPath(filePath, movie.movie), JSON.stringify(movie), 'log', 'txt');
-    await delay(1000);
+    await delay(100);
   }
 }
 
